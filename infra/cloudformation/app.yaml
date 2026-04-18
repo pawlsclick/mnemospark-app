@@ -190,6 +190,14 @@ Resources:
             Action:
               - sts:GetCallerIdentity
             Resource: "*"
+          # Allow CloudFormation (acting as this role) to update this role's inline policy on stack updates.
+          - Sid: IamUpdateOwnDeployPolicy
+            Effect: Allow
+            Action:
+              - iam:GetRole
+              - iam:PutRolePolicy
+              - iam:DeleteRolePolicy
+            Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/${GitHubDeployRoleName}"
           # S3 sync ./app (including --delete) to the private app bucket.
           - Sid: S3AppBucketList
             Effect: Allow

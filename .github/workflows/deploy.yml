@@ -77,7 +77,6 @@ jobs:
             --no-fail-on-empty-changeset \
             --parameter-overrides \
               GitHubOidcProviderArn="${GITHUB_OIDC_PROVIDER_ARN}" \
-              CreateGitHubDeployRole="false" \
               GitHubEnvironmentName="prod" \
               AppDomainName="${{ env.APP_DOMAIN_NAME }}" \
               AcmCertificateArn="${{ env.ACM_CERTIFICATE_ARN }}"
