@@ -29,7 +29,7 @@ jobs:
     environment: prod
     env:
       ACM_CERTIFICATE_ARN: ${{ secrets.ACM_CERTIFICATE_ARN }}
-      GITHUB_OIDC_PROVIDER_ARN: ${{ secrets.GITHUB_OIDC_PROVIDER_ARN }}
+      AWS_OIDC_PROVIDER_ARN: ${{ secrets.AWS_OIDC_PROVIDER_ARN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -68,8 +68,8 @@ jobs:
         run: |
           set -euo pipefail
 
-          if [[ -z "${GITHUB_OIDC_PROVIDER_ARN:-}" ]]; then
-            echo "Missing secret GITHUB_OIDC_PROVIDER_ARN on the prod environment." >&2
+          if [[ -z "${AWS_OIDC_PROVIDER_ARN:-}" ]]; then
+            echo "Missing secret AWS_OIDC_PROVIDER_ARN on the prod environment." >&2
             exit 1
           fi
 
@@ -80,7 +80,7 @@ jobs:
             --capabilities CAPABILITY_NAMED_IAM \
             --no-fail-on-empty-changeset \
             --parameter-overrides \
-              GitHubOidcProviderArn="${GITHUB_OIDC_PROVIDER_ARN}" \
+              GitHubOidcProviderArn="${AWS_OIDC_PROVIDER_ARN}" \
               GitHubEnvironmentName="prod" \
               AppDomainName="${{ env.APP_DOMAIN_NAME }}" \
               AcmCertificateArn="${{ env.ACM_CERTIFICATE_ARN }}"

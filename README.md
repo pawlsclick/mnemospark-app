@@ -16,7 +16,7 @@ Configure secrets on the **`prod`** [GitHub Environment](https://docs.github.com
 |--------|---------|
 | `AWS_ROLE_ARN_APP` | IAM role ARN for OIDC (`sts:AssumeRoleWithWebIdentity`). Trust must allow this repo, `refs/heads/main`, and `environment:prod` in the OIDC subject (see `GitHubEnvironmentName` in `infra/cloudformation/app.yaml`). |
 | `ACM_CERTIFICATE_ARN` | Public ACM certificate in **us-east-1** that covers `app.mnemospark.ai`. |
-| `GITHUB_OIDC_PROVIDER_ARN` | IAM OIDC provider ARN for GitHub Actions (`token.actions.githubusercontent.com`). Copy from **IAM → Identity providers** in the target account (do not commit it). |
+| `AWS_OIDC_PROVIDER_ARN` | IAM OIDC provider ARN for GitHub Actions (`token.actions.githubusercontent.com`). Copy from **IAM → Identity providers** in the target account (do not commit it). Secret name cannot start with `GITHUB_`. |
 
 The deploy role trust policy should match the defaults in `infra/cloudformation/app.yaml` (`GitHubOrg` / `GitHubRepo` / `GitHubBranch` / `GitHubEnvironmentName`), or adjust those parameters when deploying the stack manually. If the IAM role was created earlier with a different environment name in the trust policy, update the role trust to include `repo:<org>/<repo>:environment:prod` or redeploy the stack with matching parameters.
 
@@ -38,7 +38,7 @@ aws cloudformation deploy \
     GitHubRepo=mnemospark-app \
     GitHubBranch=main \
     GitHubEnvironmentName=prod \
-    GitHubOidcProviderArn=<YOUR_GITHUB_OIDC_PROVIDER_ARN>
+    GitHubOidcProviderArn=<YOUR_AWS_OIDC_PROVIDER_ARN>
 ```
 
 Record outputs:
