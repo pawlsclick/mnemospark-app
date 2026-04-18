@@ -23,7 +23,7 @@ Parameters:
     Default: main
   GitHubEnvironmentName:
     Type: String
-    Default: app
+    Default: prod
   CreateGitHubDeployRole:
     Type: String
     Default: "true"

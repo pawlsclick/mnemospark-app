@@ -27,6 +27,7 @@ env:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    environment: prod
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -77,6 +78,7 @@ jobs:
             --parameter-overrides \
               GitHubOidcProviderArn="${GITHUB_OIDC_PROVIDER_ARN}" \
               CreateGitHubDeployRole="false" \
+              GitHubEnvironmentName="prod" \
               AppDomainName="${{ env.APP_DOMAIN_NAME }}" \
               AcmCertificateArn="${{ env.ACM_CERTIFICATE_ARN }}"
 
