@@ -78,4 +78,4 @@ By default the shell calls **`https://api.mnemospark.ai`** (production REST API)
 
 To exercise **staging** (for example after backend CORS / `ls-web` changes), open the app with **`?api=staging`** on the URL. That choice is stored in **`sessionStorage`** for the tab so it still works after the exchange flow removes `?code=…` from the address bar. Use **`?api=prod`** to clear the override.
 
-The staging base URL is the API Gateway execute URL for stack **`mnemospark-staging`**; if that API is recreated in AWS, update the constant **`API_STAGING`** in `app/index.html`.
+The staging base URL is **`https://api-staging.mnemospark.ai`** (custom domain on the staging REST API, same path layout as production—no `/staging` prefix in the URL path). If you change that hostname, update **`API_STAGING`** in `app/index.html`.
