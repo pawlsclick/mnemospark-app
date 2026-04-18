@@ -6,7 +6,9 @@
   <title>mnemospark app — ls-web</title>
   <meta name="description" content="mnemospark app shell for listing and downloading your cloud files.">
   <meta name="robots" content="noindex, nofollow">
-  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <link rel="icon" type="image/svg+xml" href="https://mnemospark.ai/favicon.svg">
+  <link rel="icon" type="image/png" sizes="32x32" href="https://mnemospark.ai/favicon-32x32.png">
+  <link rel="apple-touch-icon" sizes="180x180" href="https://mnemospark.ai/favicon-180x180.png">
   <style>
     *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
     :root{
@@ -24,20 +26,22 @@
     }
     html{scroll-behavior:smooth}
     body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased}
-    a{color:var(--chain-accent);text-decoration:none}
-    a:hover{opacity:.85}
+    a{color:var(--chain-accent);text-decoration:none;transition:opacity .2s}
+    a:hover{opacity:.8}
 
     .container{max-width:1100px;margin:0 auto;padding:0 24px}
     nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:16px 0}
-    .nav-inner{display:flex;align-items:center;justify-content:space-between;gap:16px}
-    .logo{font-size:1.05rem;font-weight:750;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none}
-    .logo-mark{width:28px;height:28px;display:block;flex-shrink:0}
-    .nav-links{display:flex;gap:20px;font-size:.9rem;flex-wrap:wrap;justify-content:flex-end}
-    .nav-links a{color:var(--text-dim)}
+    .nav-inner{display:flex;align-items:center;justify-content:space-between}
+    .logo{font-size:1.2rem;font-weight:700;letter-spacing:-.02em;display:flex;align-items:center;gap:8px;color:var(--text);text-decoration:none}
+    .logo img{display:block;flex-shrink:0}
+    .logo span{color:var(--text)}
+    .nav-links{display:flex;gap:28px;font-size:.9rem;flex-wrap:wrap;justify-content:flex-end}
+    .nav-links a{color:var(--text-dim);transition:color .2s}
     .nav-links a:hover{color:var(--text);opacity:1}
 
-    main{padding:120px 0 60px}
-    .hero{padding:32px 0 22px}
+    /* Clear fixed nav (taller on small viewports); marketing hero uses ~220px top padding */
+    main{padding:clamp(8.5rem,14vh,11rem) 0 60px}
+    .hero{padding:12px 0 22px}
     .hero h1{font-size:clamp(1.7rem,2.8vw,2.2rem);font-weight:850;letter-spacing:-.03em;line-height:1.1}
     .hero p{margin-top:10px;color:var(--text-dim);max-width:760px}
 
@@ -79,14 +83,18 @@
     .links li{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
     .links .a{display:inline-flex;align-items:center;gap:8px}
 
-    footer{border-top:1px solid var(--border);padding:34px 0;margin-top:38px}
-    .footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px}
-    .footer-copy{font-size:.84rem;color:#555;display:inline-flex;align-items:center;gap:10px}
-    .foot-note{color:var(--text-dim);font-size:.85rem;max-width:820px;line-height:1.55}
+    .app-foot-note{color:var(--text-dim);font-size:.85rem;max-width:820px;line-height:1.55;margin-top:28px}
+
+    footer{border-top:1px solid var(--border);padding:40px 0;margin-top:40px}
+    .footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+    .footer-links{display:flex;gap:24px;font-size:.85rem;align-items:center}
+    .footer-links a{color:var(--text-dim);display:inline-flex;align-items:center}
+    .footer-links a:hover{color:var(--text);opacity:1}
+    .footer-copy{font-size:.82rem;color:#555;display:inline-flex;align-items:center;gap:8px}
 
     @media(max-width:768px){
       .nav-links{display:none}
-      main{padding:104px 0 50px}
+      main{padding:clamp(7.5rem,20vw,9rem) 0 50px}
       table{min-width:0}
       thead{display:none}
       tbody tr{display:block;padding:12px 0}
@@ -95,28 +103,25 @@
       .col-check{display:block}
       .key{max-width:210px}
       .right{text-align:left}
+      .footer-inner{flex-direction:column;text-align:center}
+      .footer-links{flex-wrap:wrap;justify-content:center}
     }
   </style>
 </head>
 <body>
   <nav>
     <div class="container nav-inner">
-      <a href="/" class="logo" aria-label="mnemospark">
-        <svg class="logo-mark" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
-          <defs>
-            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0" stop-color="#0052FF"/><stop offset="1" stop-color="#818cf8"/>
-            </linearGradient>
-          </defs>
-          <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#g)"/>
-          <path d="M18 34c7-18 21-18 28 0" fill="none" stroke="rgba(0,0,0,.78)" stroke-width="6" stroke-linecap="round"/>
-          <circle cx="24" cy="26" r="3.5" fill="rgba(0,0,0,.78)"/>
-          <circle cx="40" cy="26" r="3.5" fill="rgba(0,0,0,.78)"/>
-        </svg>
+      <a href="https://mnemospark.ai/" class="logo" aria-label="mnemospark — home">
+        <img src="https://mnemospark.ai/favicon.svg" alt="" width="28" height="28">
         <span>mnemospark</span>
       </a>
       <div class="nav-links">
-        <a href="https://mnemospark.ai" target="_blank" rel="noopener noreferrer">Marketing</a>
+        <a href="https://mnemospark.ai/#how">How It Works</a>
+        <a href="https://mnemospark.ai/#features">Features</a>
+        <a href="https://mnemospark.ai/#pricing">Pricing</a>
+        <a href="https://mnemospark.ai/#faq">FAQ</a>
+        <a href="https://mnemospark.ai/#contact">Contact</a>
+        <a href="https://paragraph.com/@mnemospark" target="_blank" rel="noopener noreferrer">Blog</a>
         <a href="https://github.com/pawlsclick/mnemospark" target="_blank" rel="noopener noreferrer">Docs</a>
       </div>
     </div>
@@ -168,20 +173,31 @@
       <div id="downloadLinks" class="links" style="display:none"></div>
     </section>
 
+    <p class="app-foot-note">
+      <span class="mono">app.mnemospark.ai</span> — browser downloads may be limited by pop-up or multi-download policies.
+      This view does not support delete; use <span class="mono">/mnemospark cloud delete</span> in OpenClaw so your agent stays in control and billing stays consistent.
+    </p>
+
     <footer>
       <div class="footer-inner">
         <div class="footer-copy">
-          <span class="mono">app.mnemospark.ai</span>
-          <span>·</span>
-          <span class="muted">browser downloads may be limited by pop-up / multi-download policies</span>
+          <img src="https://mnemospark.ai/favicon.svg" alt="" width="20" height="20" style="display:block;flex-shrink:0">
+          <span>mnemospark — Wallet and go!</span>
         </div>
-        <div class="footer-copy">
-          <a href="mailto:hello@mnemospark.ai">hello@mnemospark.ai</a>
+        <div class="footer-links">
+          <a href="https://paragraph.com/@mnemospark" target="_blank" rel="noopener noreferrer" title="Blog on Paragraph">Blog</a>
+          <a href="https://github.com/pawlsclick/mnemospark" target="_blank" rel="noopener noreferrer" title="GitHub">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 0C5.37 0 0 5.37 0 12c0 5.31 3.435 9.795 8.205 11.385.6.105.825-.255.825-.57 0-.285-.015-1.23-.015-2.235-3.015.555-3.795-.735-4.035-1.41-.135-.345-.72-1.41-1.23-1.695-.42-.225-1.02-.78-.015-.795.945-.015 1.62.87 1.845 1.23 1.08 1.815 2.805 1.305 3.495.99.105-.78.42-1.305.765-1.605-2.67-.3-5.46-1.335-5.46-5.925 0-1.305.465-2.385 1.23-3.225-.12-.3-.54-1.53.12-3.18 0 0 1.005-.315 3.3 1.23.96-.27 1.98-.405 3-.405s2.04.135 3 .405c2.295-1.56 3.3-1.23 3.3-1.23.66 1.65.24 2.88.12 3.18.765.84 1.23 1.905 1.23 3.225 0 4.605-2.805 5.625-5.475 5.925.435.375.81 1.095.81 2.22 0 1.605-.015 2.895-.015 3.3 0 .315.225.69.825.57A12.02 12.02 0 0 0 24 12c0-6.63-5.37-12-12-12z"/></svg>
+          </a>
+          <a href="https://x.com/mnemospark" target="_blank" rel="noopener noreferrer" title="X">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.744l7.73-8.835L1.254 2.25H8.08l4.253 5.622 5.911-5.622zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg>
+          </a>
+          <a href="mailto:hello@mnemospark.ai" title="Email" style="gap:6px">
+            <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg>
+            hello@mnemospark.ai
+          </a>
         </div>
       </div>
-      <p class="foot-note" style="margin-top:14px">
-        This UI does not support delete. Use OpenClaw delete so your agent stays in control and billing remains consistent.
-      </p>
     </footer>
   </main>
 
@@ -458,6 +474,7 @@
         if (Array.isArray(json)) items = json;
         else if (json && Array.isArray(json.items)) items = json.items;
         else if (json && Array.isArray(json.downloads)) items = json.downloads;
+        else if (json && Array.isArray(json.results)) items = json.results;
         else if (json && json.data && Array.isArray(json.data.items)) items = json.data.items;
 
         var urls = items.map(function (it) {
