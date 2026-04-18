@@ -1,0 +1,536 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>mnemospark app — ls-web</title>
+  <meta name="description" content="mnemospark app shell for listing and downloading your cloud files.">
+  <meta name="robots" content="noindex, nofollow">
+  <link rel="icon" type="image/svg+xml" href="favicon.svg">
+  <style>
+    *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+    :root{
+      --bg:#000000;
+      --surface:#111111;
+      --surface2:#1a1a1a;
+      --border:#222222;
+      --text:#ffffff;
+      --text-dim:#888888;
+      --danger:#ff5d5d;
+      --ok:#20c997;
+      --chain-accent:#0052FF;
+      --chain-accent2:#0040CC;
+      --chain-glow:rgba(0,82,255,.15);
+    }
+    html{scroll-behavior:smooth}
+    body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;background:var(--bg);color:var(--text);line-height:1.5;-webkit-font-smoothing:antialiased}
+    a{color:var(--chain-accent);text-decoration:none}
+    a:hover{opacity:.85}
+
+    .container{max-width:1100px;margin:0 auto;padding:0 24px}
+    nav{position:fixed;top:0;left:0;right:0;z-index:100;background:rgba(0,0,0,.88);backdrop-filter:blur(12px);border-bottom:1px solid var(--border);padding:16px 0}
+    .nav-inner{display:flex;align-items:center;justify-content:space-between;gap:16px}
+    .logo{font-size:1.05rem;font-weight:750;letter-spacing:-.02em;display:flex;align-items:center;gap:10px;color:var(--text);text-decoration:none}
+    .logo-mark{width:28px;height:28px;display:block;flex-shrink:0}
+    .nav-links{display:flex;gap:20px;font-size:.9rem;flex-wrap:wrap;justify-content:flex-end}
+    .nav-links a{color:var(--text-dim)}
+    .nav-links a:hover{color:var(--text);opacity:1}
+
+    main{padding:120px 0 60px}
+    .hero{padding:32px 0 22px}
+    .hero h1{font-size:clamp(1.7rem,2.8vw,2.2rem);font-weight:850;letter-spacing:-.03em;line-height:1.1}
+    .hero p{margin-top:10px;color:var(--text-dim);max-width:760px}
+
+    .panel{margin-top:22px;background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden}
+    .panel-top{display:flex;align-items:flex-start;justify-content:space-between;gap:16px;padding:18px 18px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+    .panel-actions{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+    .status{display:flex;flex-direction:column;gap:6px;min-width:240px}
+    .pill{display:inline-flex;align-items:center;gap:8px;padding:7px 12px;border-radius:999px;border:1px solid var(--border);background:var(--surface2);color:var(--text-dim);font-size:.84rem;max-width:100%}
+    .dot{width:8px;height:8px;border-radius:50%;background:var(--text-dim);flex-shrink:0}
+    .pill.ok{border-color:rgba(32,201,151,.25);color:rgba(32,201,151,.95)}
+    .pill.ok .dot{background:var(--ok)}
+    .pill.bad{border-color:rgba(255,93,93,.22);color:rgba(255,93,93,.95)}
+    .pill.bad .dot{background:var(--danger)}
+
+    .btn{display:inline-flex;align-items:center;gap:8px;padding:12px 16px;border-radius:10px;font-size:.95rem;font-weight:650;border:1px solid var(--border);cursor:pointer;transition:transform .15s,opacity .15s,box-shadow .15s}
+    .btn:disabled{opacity:.5;cursor:not-allowed;transform:none}
+    .btn-primary{background:linear-gradient(135deg,var(--chain-accent),var(--chain-accent2));border-color:transparent;color:#fff;box-shadow:0 0 28px rgba(0,82,255,.18)}
+    .btn-primary:hover{transform:translateY(-1px);opacity:1;box-shadow:0 0 38px rgba(0,82,255,.28)}
+    .btn-ghost{background:transparent;color:var(--text)}
+    .btn-ghost:hover{border-color:rgba(0,82,255,.55)}
+    .btn-danger{background:transparent;color:rgba(255,93,93,.95);border-color:rgba(255,93,93,.25)}
+    .btn-danger:hover{border-color:rgba(255,93,93,.45)}
+
+    .table-wrap{overflow:auto}
+    table{width:100%;border-collapse:collapse;min-width:720px}
+    thead th{position:sticky;top:0;background:rgba(17,17,17,.98);backdrop-filter:blur(12px);text-align:left;padding:14px 16px;border-bottom:1px solid var(--border);font-size:.82rem;color:var(--text-dim);letter-spacing:.02em;text-transform:uppercase}
+    tbody td{padding:14px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
+    tbody tr:hover{background:rgba(255,255,255,.02)}
+    .col-check{width:44px}
+    .filename{font-weight:650;letter-spacing:-.01em}
+    .muted{color:var(--text-dim)}
+    .mono{font-family:'SF Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:.86rem}
+    .key{max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .right{text-align:right}
+    .empty{padding:40px 18px;color:var(--text-dim)}
+    .links{padding:14px 18px;border-top:1px solid var(--border);background:rgba(255,255,255,.01)}
+    .links h3{font-size:.95rem;font-weight:750;margin-bottom:8px}
+    .links ul{list-style:none;display:flex;flex-direction:column;gap:10px}
+    .links li{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+    .links .a{display:inline-flex;align-items:center;gap:8px}
+
+    footer{border-top:1px solid var(--border);padding:34px 0;margin-top:38px}
+    .footer-inner{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px}
+    .footer-copy{font-size:.84rem;color:#555;display:inline-flex;align-items:center;gap:10px}
+    .foot-note{color:var(--text-dim);font-size:.85rem;max-width:820px;line-height:1.55}
+
+    @media(max-width:768px){
+      .nav-links{display:none}
+      main{padding:104px 0 50px}
+      table{min-width:0}
+      thead{display:none}
+      tbody tr{display:block;padding:12px 0}
+      tbody td{display:flex;justify-content:space-between;gap:14px;border-bottom:none;padding:10px 16px}
+      tbody td::before{content:attr(data-label);color:var(--text-dim);text-transform:uppercase;letter-spacing:.02em;font-size:.78rem}
+      .col-check{display:block}
+      .key{max-width:210px}
+      .right{text-align:left}
+    }
+  </style>
+</head>
+<body>
+  <nav>
+    <div class="container nav-inner">
+      <a href="/" class="logo" aria-label="mnemospark">
+        <svg class="logo-mark" viewBox="0 0 64 64" xmlns="http://www.w3.org/2000/svg" role="img" aria-hidden="true">
+          <defs>
+            <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0" stop-color="#0052FF"/><stop offset="1" stop-color="#818cf8"/>
+            </linearGradient>
+          </defs>
+          <rect x="6" y="6" width="52" height="52" rx="14" fill="url(#g)"/>
+          <path d="M18 34c7-18 21-18 28 0" fill="none" stroke="rgba(0,0,0,.78)" stroke-width="6" stroke-linecap="round"/>
+          <circle cx="24" cy="26" r="3.5" fill="rgba(0,0,0,.78)"/>
+          <circle cx="40" cy="26" r="3.5" fill="rgba(0,0,0,.78)"/>
+        </svg>
+        <span>mnemospark</span>
+      </a>
+      <div class="nav-links">
+        <a href="https://mnemospark.ai" target="_blank" rel="noopener noreferrer">Marketing</a>
+        <a href="https://github.com/pawlsclick/mnemospark" target="_blank" rel="noopener noreferrer">Docs</a>
+      </div>
+    </div>
+  </nav>
+
+  <main class="container">
+    <section class="hero">
+      <h1>Cloud files (ls-web)</h1>
+      <p>
+        This is a lightweight download shell. It uses a short-lived session cookie minted via an exchange code.
+        For deletes, use OpenClaw: <span class="mono">/mnemospark cloud delete</span>.
+      </p>
+    </section>
+
+    <section class="panel" aria-label="Files">
+      <div class="panel-top">
+        <div class="status">
+          <div id="statusPill" class="pill"><span class="dot"></span><span id="statusText">Ready</span></div>
+          <div class="pill" title="Object-key alignment note">
+            <span class="dot" style="background:var(--chain-accent)"></span>
+            Friendly names / billing align by <span class="mono">object_key</span>.
+          </div>
+        </div>
+        <div class="panel-actions">
+          <button id="refreshBtn" class="btn btn-ghost" type="button">Refresh</button>
+          <button id="selectAllBtn" class="btn btn-ghost" type="button">Select all</button>
+          <button id="clearBtn" class="btn btn-danger" type="button">Clear</button>
+          <button id="downloadBtn" class="btn btn-primary" type="button" disabled>Download selected</button>
+        </div>
+      </div>
+
+      <div class="table-wrap">
+        <table aria-label="File list">
+          <thead>
+            <tr>
+              <th class="col-check"><input id="masterCheck" type="checkbox" aria-label="Select all files"></th>
+              <th>File</th>
+              <th>Object key</th>
+              <th class="right">Size</th>
+              <th class="right">Last modified</th>
+            </tr>
+          </thead>
+          <tbody id="tbody">
+            <tr><td colspan="5" class="empty">Loading…</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div id="downloadLinks" class="links" style="display:none"></div>
+    </section>
+
+    <footer>
+      <div class="footer-inner">
+        <div class="footer-copy">
+          <span class="mono">app.mnemospark.ai</span>
+          <span>·</span>
+          <span class="muted">browser downloads may be limited by pop-up / multi-download policies</span>
+        </div>
+        <div class="footer-copy">
+          <a href="mailto:hello@mnemospark.ai">hello@mnemospark.ai</a>
+        </div>
+      </div>
+      <p class="foot-note" style="margin-top:14px">
+        This UI does not support delete. Use OpenClaw delete so your agent stays in control and billing remains consistent.
+      </p>
+    </footer>
+  </main>
+
+  <script>
+    (function () {
+      var API_BASE = 'https://api.mnemospark.ai';
+      var MAX_KEYS_HINT = 25;
+
+      var elTbody = document.getElementById('tbody');
+      var statusPill = document.getElementById('statusPill');
+      var statusText = document.getElementById('statusText');
+      var refreshBtn = document.getElementById('refreshBtn');
+      var selectAllBtn = document.getElementById('selectAllBtn');
+      var clearBtn = document.getElementById('clearBtn');
+      var downloadBtn = document.getElementById('downloadBtn');
+      var masterCheck = document.getElementById('masterCheck');
+      var downloadLinks = document.getElementById('downloadLinks');
+
+      var rows = [];
+      var selected = new Set();
+
+      function setStatus(kind, text) {
+        statusPill.className = 'pill' + (kind ? (' ' + kind) : '');
+        statusText.textContent = text;
+      }
+
+      function fmtBytes(n) {
+        if (typeof n !== 'number' || !isFinite(n)) return '—';
+        var units = ['B','KB','MB','GB','TB'];
+        var i = 0;
+        while (n >= 1024 && i < units.length - 1) { n /= 1024; i++; }
+        var d = i === 0 ? 0 : (n < 10 ? 2 : 1);
+        return n.toFixed(d) + ' ' + units[i];
+      }
+
+      function fmtDate(s) {
+        if (!s) return '—';
+        try {
+          var d = new Date(s);
+          if (isNaN(d.getTime())) return String(s);
+          return d.toLocaleString();
+        } catch (e) {
+          return String(s);
+        }
+      }
+
+      function safeName(key) {
+        if (!key) return '—';
+        var k = String(key);
+        var parts = k.split('/');
+        var last = parts[parts.length - 1] || k;
+        return last;
+      }
+
+      function normalizeListResponse(json) {
+        if (!json) return [];
+        if (Array.isArray(json)) return json;
+        if (Array.isArray(json.items)) return json.items;
+        if (Array.isArray(json.objects)) return json.objects;
+        if (json.data && Array.isArray(json.data.items)) return json.data.items;
+        if (json.data && Array.isArray(json.data.objects)) return json.data.objects;
+        return [];
+      }
+
+      function normalizeKey(o) {
+        if (!o) return '';
+        return o.object_key || o.objectKey || o.key || o.s3_key || o.s3Key || '';
+      }
+
+      function normalizeSize(o) {
+        if (!o) return undefined;
+        var n = o.size_bytes ?? o.sizeBytes ?? o.size ?? o.bytes;
+        if (typeof n === 'string') {
+          var parsed = Number(n);
+          if (!isNaN(parsed)) return parsed;
+        }
+        return typeof n === 'number' ? n : undefined;
+      }
+
+      function normalizeLastModified(o) {
+        if (!o) return undefined;
+        return o.last_modified ?? o.lastModified ?? o.modified ?? o.updated_at ?? o.updatedAt;
+      }
+
+      function updateDownloadButton() {
+        downloadBtn.disabled = selected.size === 0;
+        downloadBtn.textContent = selected.size === 0 ? 'Download selected' : ('Download selected (' + selected.size + ')');
+      }
+
+      function getSelectableKeyCount() {
+        var keys = new Set();
+        rows.forEach(function (o) {
+          var key = normalizeKey(o);
+          if (key) keys.add(key);
+        });
+        return keys.size;
+      }
+
+      function render() {
+        downloadLinks.style.display = 'none';
+        downloadLinks.innerHTML = '';
+
+        if (!rows.length) {
+          elTbody.innerHTML = '<tr><td colspan="5" class="empty">No files found.</td></tr>';
+          masterCheck.checked = false;
+          updateDownloadButton();
+          return;
+        }
+
+        var html = '';
+        rows.forEach(function (o, idx) {
+          var key = normalizeKey(o);
+          var name = safeName(key);
+          var checked = selected.has(key) ? 'checked' : '';
+          html += '<tr>' +
+            '<td class="col-check" data-label="Select">' +
+              '<input type="checkbox" data-idx="' + idx + '" ' + checked + ' aria-label="Select ' + escapeHtml(name) + '">' +
+            '</td>' +
+            '<td data-label="File"><span class="filename">' + escapeHtml(name) + '</span></td>' +
+            '<td data-label="Object key" class="mono key" title="' + escapeHtml(key) + '">' + escapeHtml(key) + '</td>' +
+            '<td data-label="Size" class="right muted">' + escapeHtml(fmtBytes(normalizeSize(o))) + '</td>' +
+            '<td data-label="Last modified" class="right muted">' + escapeHtml(fmtDate(normalizeLastModified(o))) + '</td>' +
+          '</tr>';
+        });
+
+        elTbody.innerHTML = html;
+
+        var selectableKeyCount = getSelectableKeyCount();
+        masterCheck.checked = selected.size > 0 && selected.size === selectableKeyCount;
+        updateDownloadButton();
+      }
+
+      function escapeHtml(s) {
+        return String(s ?? '').replace(/[&<>"']/g, function (c) {
+          return ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]);
+        });
+      }
+
+      async function apiFetch(path, options) {
+        var url = API_BASE + path;
+        var opt = Object.assign({
+          method: 'POST',
+          headers: { 'content-type': 'application/json' },
+          credentials: 'include'
+        }, options || {});
+        return fetch(url, opt);
+      }
+
+      async function exchangeIfCodePresent() {
+        var u = new URL(window.location.href);
+        var code = u.searchParams.get('code');
+        if (!code) return true;
+
+        setStatus('', 'Exchanging code…');
+        try {
+          var res = await apiFetch('/storage/ls-web/exchange', {
+            method: 'POST',
+            body: JSON.stringify({ code: code })
+          });
+          if (!res.ok) {
+            var txt = await safeText(res);
+            throw new Error('Exchange failed (' + res.status + '): ' + (txt || res.statusText));
+          }
+
+          u.searchParams.delete('code');
+          window.history.replaceState({}, document.title, u.toString());
+          setStatus('ok', 'Session established');
+          return true;
+        } catch (e) {
+          setStatus('bad', e && e.message ? e.message : 'Exchange failed');
+          return false;
+        }
+      }
+
+      async function safeText(res) {
+        try { return await res.text(); } catch (e) { return ''; }
+      }
+
+      async function loadList() {
+        setStatus('', 'Loading list…');
+        elTbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+
+        var res;
+        try {
+          res = await apiFetch('/storage/ls-web/list', { method: 'POST', body: JSON.stringify({}) });
+          if (res.status === 405) {
+            res = await fetch(API_BASE + '/storage/ls-web/list', { method: 'GET', credentials: 'include' });
+          }
+        } catch (e) {
+          setStatus('bad', 'Network error loading list');
+          elTbody.innerHTML = '<tr><td colspan="5" class="empty">Network error.</td></tr>';
+          return;
+        }
+
+        if (!res.ok) {
+          var txt = await safeText(res);
+          setStatus('bad', 'List failed (' + res.status + '): ' + (txt || res.statusText));
+          elTbody.innerHTML = '<tr><td colspan="5" class="empty">Failed to load list.</td></tr>';
+          return;
+        }
+
+        var json;
+        try { json = await res.json(); } catch (e) { json = null; }
+        var items = normalizeListResponse(json);
+        rows = items;
+
+        var nextSelected = new Set();
+        selected.forEach(function (k) {
+          if (rows.some(function (o) { return normalizeKey(o) === k; })) nextSelected.add(k);
+        });
+        selected = nextSelected;
+
+        setStatus('ok', 'Loaded ' + rows.length + ' file' + (rows.length === 1 ? '' : 's'));
+        render();
+      }
+
+      function getSelectedKeys() {
+        var keys = [];
+        selected.forEach(function (k) { if (k) keys.push(k); });
+        return keys;
+      }
+
+      function renderDownloadLinks(items) {
+        downloadLinks.style.display = 'block';
+        var html = '<h3>Download links</h3><ul>';
+        items.forEach(function (it) {
+          var key = it.object_key || it.objectKey || it.key || '';
+          var url = it.url || it.presigned_url || it.presignedUrl || it.download_url || it.downloadUrl || '';
+          var expires = it.expires_at || it.expiresAt;
+          html += '<li>' +
+            '<div class="a">' +
+              '<span class="mono key" title="' + escapeHtml(key) + '">' + escapeHtml(key || safeName(url)) + '</span>' +
+              (expires ? ('<span class="muted">expires ' + escapeHtml(fmtDate(expires)) + '</span>') : '') +
+            '</div>' +
+            (url ? ('<a class="btn btn-ghost" href="' + escapeHtml(url) + '" target="_blank" rel="noopener noreferrer">Open</a>') : '<span class="muted">No URL</span>') +
+          '</li>';
+        });
+        html += '</ul>';
+        downloadLinks.innerHTML = html;
+      }
+
+      async function downloadSelected() {
+        var keys = getSelectedKeys();
+        if (!keys.length) return;
+        if (keys.length > MAX_KEYS_HINT) {
+          setStatus('', 'Requesting ' + keys.length + ' keys… (backend may cap at ~' + MAX_KEYS_HINT + ')');
+        } else {
+          setStatus('', 'Requesting download URLs…');
+        }
+
+        downloadLinks.style.display = 'none';
+        downloadLinks.innerHTML = '';
+
+        var res;
+        try {
+          res = await apiFetch('/storage/ls-web/download', {
+            method: 'POST',
+            body: JSON.stringify({ object_keys: keys })
+          });
+        } catch (e) {
+          setStatus('bad', 'Network error requesting downloads');
+          return;
+        }
+
+        if (!res.ok) {
+          var txt = await safeText(res);
+          setStatus('bad', 'Download failed (' + res.status + '): ' + (txt || res.statusText));
+          return;
+        }
+
+        var json;
+        try { json = await res.json(); } catch (e) { json = null; }
+        var items = [];
+        if (Array.isArray(json)) items = json;
+        else if (json && Array.isArray(json.items)) items = json.items;
+        else if (json && Array.isArray(json.downloads)) items = json.downloads;
+        else if (json && json.data && Array.isArray(json.data.items)) items = json.data.items;
+
+        var urls = items.map(function (it) {
+          return it && (it.url || it.presigned_url || it.presignedUrl || it.download_url || it.downloadUrl);
+        }).filter(Boolean);
+
+        if (!urls.length) {
+          setStatus('bad', 'No download URLs returned');
+          return;
+        }
+
+        setStatus('ok', 'Got ' + urls.length + ' URL' + (urls.length === 1 ? '' : 's') + ' — opening…');
+
+        // Best-effort attempt to trigger downloads in the same user gesture. Browsers may still block multiples.
+        urls.forEach(function (url) {
+          var a = document.createElement('a');
+          a.href = url;
+          a.target = '_blank';
+          a.rel = 'noopener noreferrer';
+          document.body.appendChild(a);
+          a.click();
+          a.remove();
+        });
+
+        renderDownloadLinks(items);
+      }
+
+      refreshBtn.addEventListener('click', function () { loadList(); });
+      selectAllBtn.addEventListener('click', function () {
+        rows.forEach(function (o) {
+          var key = normalizeKey(o);
+          if (key) selected.add(key);
+        });
+        render();
+      });
+      clearBtn.addEventListener('click', function () {
+        selected = new Set();
+        render();
+      });
+      downloadBtn.addEventListener('click', function () { downloadSelected(); });
+
+      masterCheck.addEventListener('change', function () {
+        if (masterCheck.checked) {
+          rows.forEach(function (o) {
+            var key = normalizeKey(o);
+            if (key) selected.add(key);
+          });
+        } else {
+          selected = new Set();
+        }
+        render();
+      });
+
+      elTbody.addEventListener('change', function (ev) {
+        var t = ev.target;
+        if (!t || t.type !== 'checkbox' || !t.hasAttribute('data-idx')) return;
+        var idx = Number(t.getAttribute('data-idx'));
+        var o = rows[idx];
+        var key = normalizeKey(o);
+        if (!key) return;
+        if (t.checked) selected.add(key);
+        else selected.delete(key);
+        var selectableKeyCount = getSelectableKeyCount();
+        masterCheck.checked = selected.size > 0 && selected.size === selectableKeyCount;
+        updateDownloadButton();
+      });
+
+      (async function boot() {
+        var exchangeOk = await exchangeIfCodePresent();
+        if (!exchangeOk) return;
+        await loadList();
+      })();
+    })();
+  </script>
+</body>
+</html>
