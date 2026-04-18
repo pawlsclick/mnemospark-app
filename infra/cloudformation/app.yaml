@@ -259,6 +259,7 @@ Outputs:
   DistributionDomainName:
     Value: !GetAtt AppDistribution.DomainName
   GitHubDeployRoleArn:
+    Condition: CreateGitHubDeployRoleCondition
     Value: !Sub "arn:aws:iam::${AWS::AccountId}:role/${GitHubDeployRoleName}"
   AppDnsTarget:
     Description: Porkbun CNAME target for app
