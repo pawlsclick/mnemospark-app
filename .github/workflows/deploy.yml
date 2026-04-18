@@ -22,12 +22,14 @@ env:
   CFN_STACK_NAME: mnemospark-app
   CFN_TEMPLATE_FILE: infra/cloudformation/app.yaml
   APP_DOMAIN_NAME: app.mnemospark.ai
-  ACM_CERTIFICATE_ARN: ${{ secrets.ACM_CERTIFICATE_ARN }}
 
 jobs:
   deploy:
     runs-on: ubuntu-latest
     environment: prod
+    env:
+      ACM_CERTIFICATE_ARN: ${{ secrets.ACM_CERTIFICATE_ARN }}
+      GITHUB_OIDC_PROVIDER_ARN: ${{ secrets.GITHUB_OIDC_PROVIDER_ARN }}
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -66,8 +68,10 @@ jobs:
         run: |
           set -euo pipefail
 
-          AWS_ACCOUNT_ID="$(aws sts get-caller-identity --query Account --output text)"
-          GITHUB_OIDC_PROVIDER_ARN="arn:aws:iam::${AWS_ACCOUNT_ID}:oidc-provider/token.actions.githubusercontent.com"
+          if [[ -z "${GITHUB_OIDC_PROVIDER_ARN:-}" ]]; then
+            echo "Missing secret GITHUB_OIDC_PROVIDER_ARN on the prod environment." >&2
+            exit 1
+          fi
 
           aws cloudformation deploy \
             --stack-name "$CFN_STACK_NAME" \
