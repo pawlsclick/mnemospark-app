@@ -143,6 +143,7 @@
         This is a lightweight download shell. It uses a short-lived session cookie minted via an exchange code.
         For deletes, use OpenClaw: <span class="mono">/mnemospark cloud delete</span>.
       </p>
+      <p id="apiEnvNote" class="muted" style="display:none;margin-top:10px;font-size:.88rem" role="status"></p>
     </section>
 
     <section class="panel" aria-label="Files">
@@ -212,7 +213,35 @@
 
   <script>
     (function () {
-      var API_BASE = 'https://api.mnemospark.ai';
+      var API_PROD = 'https://api.mnemospark.ai';
+      /* mnemospark-staging regional REST invoke URL (see AWS ApiGateway RestApi wrlx6tq7vh). Update if recreated. */
+      var API_STAGING = 'https://wrlx6tq7vh.execute-api.us-east-1.amazonaws.com/staging';
+      var LS_WEB_API_ENV_KEY = 'mnemospark_ls_web_api_env';
+
+      function resolveApiBase() {
+        var u = new URL(window.location.href);
+        var mode = (u.searchParams.get('api') || '').trim().toLowerCase();
+        if (mode === 'staging') {
+          try {
+            sessionStorage.setItem(LS_WEB_API_ENV_KEY, 'staging');
+          } catch (err) { /* private mode / storage blocked */ }
+          return API_STAGING;
+        }
+        if (mode === 'prod') {
+          try {
+            sessionStorage.removeItem(LS_WEB_API_ENV_KEY);
+          } catch (err) { /* private mode / storage blocked */ }
+          return API_PROD;
+        }
+        try {
+          if (sessionStorage.getItem(LS_WEB_API_ENV_KEY) === 'staging') {
+            return API_STAGING;
+          }
+        } catch (err) { /* private mode / storage blocked */ }
+        return API_PROD;
+      }
+
+      var API_BASE = resolveApiBase();
       var MAX_KEYS_HINT = 25;
 
       var elTbody = document.getElementById('tbody');
@@ -224,6 +253,12 @@
       var downloadBtn = document.getElementById('downloadBtn');
       var masterCheck = document.getElementById('masterCheck');
       var downloadLinks = document.getElementById('downloadLinks');
+      var apiEnvNote = document.getElementById('apiEnvNote');
+      if (apiEnvNote && API_BASE === API_STAGING) {
+        apiEnvNote.style.display = 'block';
+        apiEnvNote.textContent =
+          'Using the staging API for this tab. Open with ?api=prod to use production, or add ?api=staging to return here after clearing the code from the URL.';
+      }
 
       var rows = [];
       var selected = new Set();
