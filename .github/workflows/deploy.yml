@@ -1,0 +1,157 @@
+name: Deploy app.mnemospark.ai (CloudFront)
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "app/**"
+      - "infra/cloudformation/app.yaml"
+      - ".github/workflows/deploy.yml"
+  workflow_dispatch:
+
+permissions:
+  id-token: write
+  contents: read
+
+concurrency:
+  group: mnemospark-app-deploy
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: us-east-1
+  CFN_STACK_NAME: mnemospark-app
+  CFN_TEMPLATE_FILE: infra/cloudformation/app.yaml
+  APP_DOMAIN_NAME: app.mnemospark.ai
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: prod
+    env:
+      ACM_CERTIFICATE_ARN: ${{ secrets.ACM_CERTIFICATE_ARN }}
+      AWS_OIDC_PROVIDER_ARN: ${{ secrets.AWS_OIDC_PROVIDER_ARN }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials (OIDC)
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN_APP }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Recover from ROLLBACK_COMPLETE stack state
+        shell: bash
+        run: |
+          set -euo pipefail
+          STACK_STATUS=$(aws cloudformation describe-stacks \
+            --stack-name "$CFN_STACK_NAME" \
+            --region "$AWS_REGION" \
+            --query "Stacks[0].StackStatus" \
+            --output text 2>/dev/null || echo "STACK_NOT_FOUND")
+
+          if [[ "$STACK_STATUS" == "ROLLBACK_COMPLETE" ]]; then
+            echo "Stack is ROLLBACK_COMPLETE. Deleting before redeploy..."
+            aws cloudformation delete-stack \
+              --stack-name "$CFN_STACK_NAME" \
+              --region "$AWS_REGION"
+            aws cloudformation wait stack-delete-complete \
+              --stack-name "$CFN_STACK_NAME" \
+              --region "$AWS_REGION"
+            echo "Stale rollback stack deleted."
+          else
+            echo "Stack status is $STACK_STATUS. No cleanup needed."
+          fi
+
+      - name: Deploy CloudFormation stack
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          if [[ -z "${AWS_OIDC_PROVIDER_ARN:-}" ]]; then
+            echo "Missing secret AWS_OIDC_PROVIDER_ARN on the prod environment." >&2
+            exit 1
+          fi
+          if [[ -z "${ACM_CERTIFICATE_ARN:-}" ]]; then
+            echo "Missing secret ACM_CERTIFICATE_ARN on the prod environment." >&2
+            exit 1
+          fi
+
+          aws cloudformation deploy \
+            --stack-name "$CFN_STACK_NAME" \
+            --template-file "$CFN_TEMPLATE_FILE" \
+            --region "$AWS_REGION" \
+            --capabilities CAPABILITY_NAMED_IAM \
+            --no-fail-on-empty-changeset \
+            --parameter-overrides \
+              GitHubOidcProviderArn="${AWS_OIDC_PROVIDER_ARN}" \
+              GitHubEnvironmentName="prod" \
+              AppDomainName="${{ env.APP_DOMAIN_NAME }}" \
+              AcmCertificateArn="${{ env.ACM_CERTIFICATE_ARN }}"
+
+      - name: Resolve stack outputs
+        id: outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          STACK_JSON=$(aws cloudformation describe-stacks \
+            --stack-name "$CFN_STACK_NAME" \
+            --region "$AWS_REGION")
+
+          STACK_STATUS=$(echo "$STACK_JSON" | jq -r '.Stacks[0].StackStatus')
+          echo "CloudFormation stack status: $STACK_STATUS"
+
+          BUCKET=$(echo "$STACK_JSON" | jq -r '.Stacks[0].Outputs // [] | .[] | select(.OutputKey=="BucketName") | .OutputValue')
+          DIST_ID=$(echo "$STACK_JSON" | jq -r '.Stacks[0].Outputs // [] | .[] | select(.OutputKey=="DistributionId") | .OutputValue')
+          DIST_DOMAIN=$(echo "$STACK_JSON" | jq -r '.Stacks[0].Outputs // [] | .[] | select(.OutputKey=="DistributionDomainName") | .OutputValue')
+
+          if [[ -z "$BUCKET" || "$BUCKET" == "null" ]]; then
+            echo "BucketName output not found in stack $CFN_STACK_NAME" >&2
+            echo "$STACK_JSON" | jq '.Stacks[0] | {StackName, StackStatus, StackStatusReason, Outputs}'
+            exit 1
+          fi
+
+          if [[ -z "$DIST_ID" || "$DIST_ID" == "null" ]]; then
+            echo "DistributionId output not found in stack $CFN_STACK_NAME" >&2
+            echo "$STACK_JSON" | jq '.Stacks[0] | {StackName, StackStatus, StackStatusReason, Outputs}'
+            exit 1
+          fi
+
+          echo "bucket=$BUCKET" >> "$GITHUB_OUTPUT"
+          echo "distribution_id=$DIST_ID" >> "$GITHUB_OUTPUT"
+          echo "distribution_domain=$DIST_DOMAIN" >> "$GITHUB_OUTPUT"
+
+      - name: Deploy assets (non-HTML)
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3 sync ./app "s3://${{ steps.outputs.outputs.bucket }}" \
+            --delete \
+            --exclude "*.html" \
+            --cache-control "public, max-age=86400"
+
+      - name: Deploy HTML (no-cache)
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3 sync ./app "s3://${{ steps.outputs.outputs.bucket }}" \
+            --delete \
+            --exclude "*" \
+            --include "*.html" \
+            --cache-control "no-cache, no-store, must-revalidate"
+
+      - name: Invalidate CloudFront
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws cloudfront create-invalidation \
+            --distribution-id "${{ steps.outputs.outputs.distribution_id }}" \
+            --paths "/*"
+
+      - name: Deployment summary
+        shell: bash
+        run: |
+          set -euo pipefail
+          echo "Deployed to CloudFront distribution: ${{ steps.outputs.outputs.distribution_id }}"
+          echo "CloudFront domain: ${{ steps.outputs.outputs.distribution_domain }}"

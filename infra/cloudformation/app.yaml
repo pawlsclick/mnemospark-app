@@ -1,0 +1,265 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: mnemospark-app static shell (S3 private origin + CloudFront + GitHub OIDC deploy role)
+
+Parameters:
+  ProjectName:
+    Type: String
+    Default: mnemospark-app
+    AllowedPattern: "[a-zA-Z0-9-]+"
+  AppDomainName:
+    Type: String
+    Default: app.mnemospark.ai
+  AcmCertificateArn:
+    Type: String
+    Description: ACM certificate ARN in us-east-1 (must cover app.mnemospark.ai)
+  GitHubOrg:
+    Type: String
+    Default: pawlsclick
+  GitHubRepo:
+    Type: String
+    Default: mnemospark-app
+  GitHubBranch:
+    Type: String
+    Default: main
+  GitHubEnvironmentName:
+    Type: String
+    Default: prod
+  CreateGitHubDeployRole:
+    Type: String
+    Default: "true"
+    AllowedValues:
+      - "true"
+      - "false"
+  GitHubDeployRoleName:
+    Type: String
+    Default: mnemospark-app-github-deploy-main
+  GitHubOidcProviderArn:
+    Type: String
+    Description: Existing IAM OIDC provider ARN for GitHub Actions (token.actions.githubusercontent.com)
+
+Conditions:
+  CreateGitHubDeployRoleCondition: !Equals [!Ref CreateGitHubDeployRole, "true"]
+
+Resources:
+  AppBucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub "${ProjectName}-static-${AWS::AccountId}-${AWS::Region}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules:
+          - ObjectOwnership: BucketOwnerEnforced
+      VersioningConfiguration:
+        Status: Enabled
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault:
+              SSEAlgorithm: AES256
+
+  CloudFrontOAC:
+    Type: AWS::CloudFront::OriginAccessControl
+    Properties:
+      OriginAccessControlConfig:
+        Name: !Sub "${ProjectName}-oac"
+        OriginAccessControlOriginType: s3
+        SigningBehavior: always
+        SigningProtocol: sigv4
+
+  SecurityHeadersPolicy:
+    Type: AWS::CloudFront::ResponseHeadersPolicy
+    Properties:
+      ResponseHeadersPolicyConfig:
+        Name: !Sub "${ProjectName}-security-headers"
+        SecurityHeadersConfig:
+          ContentTypeOptions:
+            Override: true
+          FrameOptions:
+            FrameOption: DENY
+            Override: true
+          ReferrerPolicy:
+            ReferrerPolicy: strict-origin-when-cross-origin
+            Override: true
+          StrictTransportSecurity:
+            AccessControlMaxAgeSec: 31536000
+            IncludeSubdomains: true
+            Override: true
+          XSSProtection:
+            ModeBlock: true
+            Protection: true
+            Override: true
+
+  AppDistribution:
+    Type: AWS::CloudFront::Distribution
+    Properties:
+      DistributionConfig:
+        Enabled: true
+        Comment: !Sub "${ProjectName} CloudFront distribution"
+        Aliases:
+          - !Ref AppDomainName
+        DefaultRootObject: index.html
+        HttpVersion: http2and3
+        PriceClass: PriceClass_100
+        Origins:
+          - Id: s3-origin
+            DomainName: !GetAtt AppBucket.RegionalDomainName
+            S3OriginConfig: {}
+            OriginAccessControlId: !GetAtt CloudFrontOAC.Id
+        DefaultCacheBehavior:
+          TargetOriginId: s3-origin
+          ViewerProtocolPolicy: redirect-to-https
+          AllowedMethods:
+            - GET
+            - HEAD
+            - OPTIONS
+          CachedMethods:
+            - GET
+            - HEAD
+          Compress: true
+          CachePolicyId: 658327ea-f89d-4fab-a63d-7e88639e58f6 # Managed-CachingOptimized
+          ResponseHeadersPolicyId: !Ref SecurityHeadersPolicy
+        CustomErrorResponses:
+          - ErrorCode: 403
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+          - ErrorCode: 404
+            ResponseCode: 200
+            ResponsePagePath: /index.html
+        ViewerCertificate:
+          AcmCertificateArn: !Ref AcmCertificateArn
+          SslSupportMethod: sni-only
+          MinimumProtocolVersion: TLSv1.2_2021
+
+  AppBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref AppBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: AllowCloudFrontReadOnly
+            Effect: Allow
+            Principal:
+              Service: cloudfront.amazonaws.com
+            Action: s3:GetObject
+            Resource: !Sub "${AppBucket.Arn}/*"
+            Condition:
+              StringEquals:
+                AWS:SourceArn: !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${AppDistribution}"
+
+  GitHubDeployRole:
+    Type: AWS::IAM::Role
+    Condition: CreateGitHubDeployRoleCondition
+    Properties:
+      Description: GitHub Actions OIDC deploy role for mnemospark-app (app.mnemospark.ai static shell)
+      RoleName: !Ref GitHubDeployRoleName
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Effect: Allow
+            Principal:
+              Federated: !Ref GitHubOidcProviderArn
+            Action: sts:AssumeRoleWithWebIdentity
+            Condition:
+              StringEquals:
+                token.actions.githubusercontent.com:aud: sts.amazonaws.com
+                token.actions.githubusercontent.com:repository: !Sub "${GitHubOrg}/${GitHubRepo}"
+              StringLikeIfExists:
+                token.actions.githubusercontent.com:ref: !Sub "refs/heads/${GitHubBranch}"
+              StringLike:
+                token.actions.githubusercontent.com:sub:
+                  - !Sub "repo:${GitHubOrg}/${GitHubRepo}:ref:refs/heads/${GitHubBranch}"
+                  - !Sub "repo:${GitHubOrg}/${GitHubRepo}:environment:${GitHubEnvironmentName}"
+
+  GitHubDeployRolePolicy:
+    Type: AWS::IAM::Policy
+    Condition: CreateGitHubDeployRoleCondition
+    Properties:
+      PolicyName: mnemospark-app-github-deploy
+      Roles:
+        - !Ref GitHubDeployRole
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # GitHub Actions runs `aws sts get-caller-identity` before CloudFormation deploy.
+          - Sid: StsGetCallerIdentity
+            Effect: Allow
+            Action:
+              - sts:GetCallerIdentity
+            Resource: "*"
+          # Allow CloudFormation (acting as this role) to update this role's inline policy on stack updates.
+          - Sid: IamUpdateOwnDeployPolicy
+            Effect: Allow
+            Action:
+              - iam:GetRole
+              - iam:PutRolePolicy
+              - iam:DeleteRolePolicy
+            Resource: !Sub "arn:aws:iam::${AWS::AccountId}:role/${GitHubDeployRoleName}"
+          # S3 sync ./app (including --delete) to the private app bucket.
+          - Sid: S3AppBucketList
+            Effect: Allow
+            Action:
+              - s3:ListBucket
+              - s3:GetBucketLocation
+              - s3:ListBucketMultipartUploads
+            Resource:
+              - !GetAtt AppBucket.Arn
+          - Sid: S3AppObjectsReadWriteDelete
+            Effect: Allow
+            Action:
+              - s3:PutObject
+              - s3:DeleteObject
+              - s3:GetObject
+              - s3:AbortMultipartUpload
+              - s3:ListMultipartUploadParts
+            Resource:
+              - !Sub "${AppBucket.Arn}/*"
+          # CloudFront cache bust after upload.
+          - Sid: CloudFrontInvalidateAppDistribution
+            Effect: Allow
+            Action:
+              - cloudfront:CreateInvalidation
+              - cloudfront:GetDistribution
+            Resource:
+              - !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${AppDistribution}"
+          # `aws cloudformation deploy` + rollback cleanup in CI (mirrors marketing role shape,
+          # but expands beyond DescribeStacks-only so deploy can create/update/delete the app stack).
+          - Sid: CloudFormationDeployAppStack
+            Effect: Allow
+            Action:
+              - cloudformation:CreateStack
+              - cloudformation:UpdateStack
+              - cloudformation:DeleteStack
+              - cloudformation:DescribeStacks
+              - cloudformation:DescribeStackEvents
+              - cloudformation:DescribeStackResources
+              - cloudformation:GetTemplate
+              - cloudformation:GetTemplateSummary
+              - cloudformation:CreateChangeSet
+              - cloudformation:DeleteChangeSet
+              - cloudformation:DescribeChangeSet
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:ContinueUpdateRollback
+              - cloudformation:ValidateTemplate
+            Resource: "*"
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: !Ref AWS::Region
+
+Outputs:
+  BucketName:
+    Value: !Ref AppBucket
+  BucketArn:
+    Value: !GetAtt AppBucket.Arn
+  DistributionId:
+    Value: !Ref AppDistribution
+  DistributionDomainName:
+    Value: !GetAtt AppDistribution.DomainName
+  GitHubDeployRoleArn:
+    Value: !Sub "arn:aws:iam::${AWS::AccountId}:role/${GitHubDeployRoleName}"
+  AppDnsTarget:
+    Description: Porkbun CNAME target for app
+    Value: !GetAtt AppDistribution.DomainName
