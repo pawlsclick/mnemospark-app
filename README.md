@@ -47,6 +47,12 @@ Record outputs:
 
 For day-to-day CI, the workflow passes `CreateGitHubDeployRole=false` and expects the role to already exist (same pattern as `mnemospark-website` prod deploy).
 
+### GitHub deploy IAM role (OIDC)
+
+The stack can create a dedicated role (default name **`mnemospark-app-github-deploy-main`**, analogous to **`mnemospark-website-github-deploy-main`** on the marketing site). Trust matches GitHub OIDC for this repo on **`refs/heads/main`** and the GitHub Environment named in **`GitHubEnvironmentName`** (default **`prod`**).
+
+The attached policy allows what CI needs: **`sts:GetCallerIdentity`**, **`aws cloudformation deploy`** against the app stack (create/update/delete, change sets, describe), **`aws s3 sync`** to the app bucket (including multipart uploads), and **CloudFront invalidation** for the app distribution only.
+
 ## DNS (Porkbun)
 
 Create a **`app`** **CNAME** pointing to the stack output **`AppDnsTarget`** (CloudFront domain name).

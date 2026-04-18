@@ -154,6 +154,7 @@ Resources:
     Type: AWS::IAM::Role
     Condition: CreateGitHubDeployRoleCondition
     Properties:
+      Description: GitHub Actions OIDC deploy role for mnemospark-app (app.mnemospark.ai static shell)
       RoleName: !Ref GitHubDeployRoleName
       AssumeRolePolicyDocument:
         Version: "2012-10-17"
@@ -177,34 +178,68 @@ Resources:
     Type: AWS::IAM::Policy
     Condition: CreateGitHubDeployRoleCondition
     Properties:
-      PolicyName: mnemospark-app-deploy
+      PolicyName: mnemospark-app-github-deploy
       Roles:
         - !Ref GitHubDeployRole
       PolicyDocument:
         Version: "2012-10-17"
         Statement:
-          - Effect: Allow
+          # GitHub Actions runs `aws sts get-caller-identity` before CloudFormation deploy.
+          - Sid: StsGetCallerIdentity
+            Effect: Allow
+            Action:
+              - sts:GetCallerIdentity
+            Resource: "*"
+          # S3 sync ./app (including --delete) to the private app bucket.
+          - Sid: S3AppBucketList
+            Effect: Allow
             Action:
               - s3:ListBucket
+              - s3:GetBucketLocation
             Resource:
               - !GetAtt AppBucket.Arn
-          - Effect: Allow
+          - Sid: S3AppObjectsReadWriteDelete
+            Effect: Allow
             Action:
               - s3:PutObject
               - s3:DeleteObject
               - s3:GetObject
+              - s3:AbortMultipartUpload
+              - s3:ListMultipartUploadParts
+              - s3:ListBucketMultipartUploads
             Resource:
               - !Sub "${AppBucket.Arn}/*"
-          - Effect: Allow
+          # CloudFront cache bust after upload.
+          - Sid: CloudFrontInvalidateAppDistribution
+            Effect: Allow
             Action:
               - cloudfront:CreateInvalidation
               - cloudfront:GetDistribution
             Resource:
               - !Sub "arn:aws:cloudfront::${AWS::AccountId}:distribution/${AppDistribution}"
-          - Effect: Allow
+          # `aws cloudformation deploy` + rollback cleanup in CI (mirrors marketing role shape,
+          # but expands beyond DescribeStacks-only so deploy can create/update/delete the app stack).
+          - Sid: CloudFormationDeployAppStack
+            Effect: Allow
             Action:
+              - cloudformation:CreateStack
+              - cloudformation:UpdateStack
+              - cloudformation:DeleteStack
               - cloudformation:DescribeStacks
+              - cloudformation:DescribeStackEvents
+              - cloudformation:DescribeStackResources
+              - cloudformation:GetTemplate
+              - cloudformation:GetTemplateSummary
+              - cloudformation:CreateChangeSet
+              - cloudformation:DeleteChangeSet
+              - cloudformation:DescribeChangeSet
+              - cloudformation:ExecuteChangeSet
+              - cloudformation:ContinueUpdateRollback
+              - cloudformation:ValidateTemplate
             Resource: "*"
+            Condition:
+              StringEquals:
+                aws:RequestedRegion: !Ref AWS::Region
 
 Outputs:
   BucketName:
