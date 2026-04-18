@@ -72,6 +72,10 @@ jobs:
             echo "Missing secret AWS_OIDC_PROVIDER_ARN on the prod environment." >&2
             exit 1
           fi
+          if [[ -z "${ACM_CERTIFICATE_ARN:-}" ]]; then
+            echo "Missing secret ACM_CERTIFICATE_ARN on the prod environment." >&2
+            exit 1
+          fi
 
           aws cloudformation deploy \
             --stack-name "$CFN_STACK_NAME" \
