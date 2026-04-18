@@ -221,15 +221,19 @@
       function resolveApiBase() {
         var u = new URL(window.location.href);
         var mode = (u.searchParams.get('api') || '').trim().toLowerCase();
-        try {
-          if (mode === 'staging') {
+        if (mode === 'staging') {
+          try {
             sessionStorage.setItem(LS_WEB_API_ENV_KEY, 'staging');
-            return API_STAGING;
-          }
-          if (mode === 'prod') {
+          } catch (err) { /* private mode / storage blocked */ }
+          return API_STAGING;
+        }
+        if (mode === 'prod') {
+          try {
             sessionStorage.removeItem(LS_WEB_API_ENV_KEY);
-            return API_PROD;
-          }
+          } catch (err) { /* private mode / storage blocked */ }
+          return API_PROD;
+        }
+        try {
           if (sessionStorage.getItem(LS_WEB_API_ENV_KEY) === 'staging') {
             return API_STAGING;
           }
