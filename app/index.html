@@ -435,7 +435,7 @@
             '<td data-label="Tier" class="muted">' + escapeHtml(tier || '—') + '</td>' +
             '<td data-label="Max size" class="right muted">' + escapeHtml(fmtBytes(maxSize)) + '</td>' +
             '<td data-label="Actual size" class="right muted">' + escapeHtml(fmtBytes(actualSize)) + '</td>' +
-            '<td data-label="Price paid" class="right muted">' + escapeHtml(pricePaid || '—') + '</td>' +
+            '<td data-label="Price paid" class="right muted">' + escapeHtml((pricePaid === 0 || pricePaid) ? pricePaid : '—') + '</td>' +
             '<td data-label="Expires" class="right muted">' + escapeHtml(fmtDate(expiresAt)) + '</td>' +
             '<td data-label="Created" class="right muted">' + escapeHtml(fmtDate(createdAt)) + '</td>' +
           '</tr>';
@@ -496,7 +496,7 @@
 
       async function loadList() {
         setStatus('', 'Loading list…');
-        elTbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+        elTbody.innerHTML = '<tr><td colspan="10" class="empty">Loading…</td></tr>';
 
         var res;
         try {
@@ -506,14 +506,14 @@
           }
         } catch (e) {
           setStatus('bad', 'Network error loading list');
-          elTbody.innerHTML = '<tr><td colspan="5" class="empty">Network error.</td></tr>';
+          elTbody.innerHTML = '<tr><td colspan="10" class="empty">Network error.</td></tr>';
           return;
         }
 
         if (!res.ok) {
           var txt = await safeText(res);
           setStatus('bad', 'List failed (' + res.status + '): ' + (txt || res.statusText));
-          elTbody.innerHTML = '<tr><td colspan="5" class="empty">Failed to load list.</td></tr>';
+          elTbody.innerHTML = '<tr><td colspan="10" class="empty">Failed to load list.</td></tr>';
           return;
         }
 
