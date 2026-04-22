@@ -75,7 +75,7 @@
     .btn-danger:hover{border-color:rgba(255,93,93,.45)}
 
     .table-wrap{overflow:auto}
-    table{width:100%;border-collapse:collapse;min-width:720px}
+    table{width:100%;border-collapse:collapse;min-width:1050px}
     thead th{position:sticky;top:0;background:rgba(17,17,17,.98);backdrop-filter:blur(12px);text-align:left;padding:14px 16px;border-bottom:1px solid var(--border);font-size:.82rem;color:var(--text-dim);letter-spacing:.02em;text-transform:uppercase}
     tbody td{padding:14px 16px;border-bottom:1px solid var(--border);vertical-align:middle}
     tbody tr:hover{background:rgba(255,255,255,.02)}
@@ -83,7 +83,7 @@
     .filename{font-weight:650;letter-spacing:-.01em}
     .muted{color:var(--text-dim)}
     .mono{font-family:'SF Mono',ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;font-size:.86rem}
-    .key{max-width:520px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+    .key{max-width:260px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
     .right{text-align:right}
     .empty{padding:40px 18px;color:var(--text-dim)}
     .links{padding:14px 18px;border-top:1px solid var(--border);background:rgba(255,255,255,.01)}
@@ -168,14 +168,19 @@
           <thead>
             <tr>
               <th class="col-check"><input id="masterCheck" type="checkbox" aria-label="Select all files"></th>
-              <th>File</th>
-              <th>Object key</th>
-              <th class="right">Size</th>
-              <th class="right">Last modified</th>
+              <th>ID</th>
+              <th>Filename</th>
+              <th>Content type</th>
+              <th>Tier</th>
+              <th class="right">Max size</th>
+              <th class="right">Actual size</th>
+              <th class="right">Price paid</th>
+              <th class="right">Expires</th>
+              <th class="right">Created</th>
             </tr>
           </thead>
           <tbody id="tbody">
-            <tr><td colspan="5" class="empty">Loading…</td></tr>
+            <tr><td colspan="10" class="empty">Loading…</td></tr>
           </tbody>
         </table>
       </div>
@@ -311,6 +316,61 @@
         return o.object_key || o.objectKey || o.key || o.s3_key || o.s3Key || '';
       }
 
+      function normalizeUploadId(o) {
+        if (!o) return '';
+        return o.id || o.uploadId || o.upload_id || '';
+      }
+
+      function normalizeFilename(o) {
+        if (!o) return '';
+        return o.filename || safeName(normalizeKey(o));
+      }
+
+      function normalizeContentType(o) {
+        if (!o) return '';
+        return o.contentType || o.content_type || o.mimeType || o.mime_type || '';
+      }
+
+      function normalizeTier(o) {
+        if (!o) return '';
+        return o.tier || '';
+      }
+
+      function normalizeMaxSize(o) {
+        if (!o) return undefined;
+        var n = o.maxSize ?? o.max_size;
+        if (typeof n === 'string') {
+          var parsed = Number(n);
+          if (!isNaN(parsed)) return parsed;
+        }
+        return typeof n === 'number' ? n : undefined;
+      }
+
+      function normalizeActualSize(o) {
+        if (!o) return undefined;
+        var n = o.actualSize ?? o.actual_size ?? normalizeSize(o);
+        if (typeof n === 'string') {
+          var parsed = Number(n);
+          if (!isNaN(parsed)) return parsed;
+        }
+        return typeof n === 'number' ? n : undefined;
+      }
+
+      function normalizePricePaid(o) {
+        if (!o) return '';
+        return o.pricePaid ?? o.price_paid ?? '';
+      }
+
+      function normalizeExpiresAt(o) {
+        if (!o) return undefined;
+        return o.expiresAt ?? o.expires_at;
+      }
+
+      function normalizeCreatedAt(o) {
+        if (!o) return undefined;
+        return o.createdAt ?? o.created_at ?? normalizeLastModified(o);
+      }
+
       function normalizeSize(o) {
         if (!o) return undefined;
         var n = o.size_bytes ?? o.sizeBytes ?? o.size ?? o.bytes;
@@ -345,7 +405,7 @@
         downloadLinks.innerHTML = '';
 
         if (!rows.length) {
-          elTbody.innerHTML = '<tr><td colspan="5" class="empty">No files found.</td></tr>';
+          elTbody.innerHTML = '<tr><td colspan="10" class="empty">No files found.</td></tr>';
           masterCheck.checked = false;
           updateDownloadButton();
           return;
@@ -354,16 +414,30 @@
         var html = '';
         rows.forEach(function (o, idx) {
           var key = normalizeKey(o);
-          var name = safeName(key);
+          var id = normalizeUploadId(o);
+          var filename = normalizeFilename(o);
+          var contentType = normalizeContentType(o);
+          var tier = normalizeTier(o);
+          var maxSize = normalizeMaxSize(o);
+          var actualSize = normalizeActualSize(o);
+          var pricePaid = normalizePricePaid(o);
+          var expiresAt = normalizeExpiresAt(o);
+          var createdAt = normalizeCreatedAt(o);
+          var displayName = filename || safeName(key);
           var checked = selected.has(key) ? 'checked' : '';
           html += '<tr>' +
             '<td class="col-check" data-label="Select">' +
-              '<input type="checkbox" data-idx="' + idx + '" ' + checked + ' aria-label="Select ' + escapeHtml(name) + '">' +
+              '<input type="checkbox" data-idx="' + idx + '" ' + checked + ' aria-label="Select ' + escapeHtml(displayName) + '">' +
             '</td>' +
-            '<td data-label="File"><span class="filename">' + escapeHtml(name) + '</span></td>' +
-            '<td data-label="Object key" class="mono key" title="' + escapeHtml(key) + '">' + escapeHtml(key) + '</td>' +
-            '<td data-label="Size" class="right muted">' + escapeHtml(fmtBytes(normalizeSize(o))) + '</td>' +
-            '<td data-label="Last modified" class="right muted">' + escapeHtml(fmtDate(normalizeLastModified(o))) + '</td>' +
+            '<td data-label="ID" class="mono key" title="' + escapeHtml(id || '—') + '">' + escapeHtml(id || '—') + '</td>' +
+            '<td data-label="Filename"><span class="filename">' + escapeHtml(displayName) + '</span></td>' +
+            '<td data-label="Content type" class="muted">' + escapeHtml(contentType || '—') + '</td>' +
+            '<td data-label="Tier" class="muted">' + escapeHtml(tier || '—') + '</td>' +
+            '<td data-label="Max size" class="right muted">' + escapeHtml(fmtBytes(maxSize)) + '</td>' +
+            '<td data-label="Actual size" class="right muted">' + escapeHtml(fmtBytes(actualSize)) + '</td>' +
+            '<td data-label="Price paid" class="right muted">' + escapeHtml((pricePaid === 0 || pricePaid) ? pricePaid : '—') + '</td>' +
+            '<td data-label="Expires" class="right muted">' + escapeHtml(fmtDate(expiresAt)) + '</td>' +
+            '<td data-label="Created" class="right muted">' + escapeHtml(fmtDate(createdAt)) + '</td>' +
           '</tr>';
         });
 
@@ -422,7 +496,7 @@
 
       async function loadList() {
         setStatus('', 'Loading list…');
-        elTbody.innerHTML = '<tr><td colspan="5" class="empty">Loading…</td></tr>';
+        elTbody.innerHTML = '<tr><td colspan="10" class="empty">Loading…</td></tr>';
 
         var res;
         try {
@@ -432,14 +506,14 @@
           }
         } catch (e) {
           setStatus('bad', 'Network error loading list');
-          elTbody.innerHTML = '<tr><td colspan="5" class="empty">Network error.</td></tr>';
+          elTbody.innerHTML = '<tr><td colspan="10" class="empty">Network error.</td></tr>';
           return;
         }
 
         if (!res.ok) {
           var txt = await safeText(res);
           setStatus('bad', 'List failed (' + res.status + '): ' + (txt || res.statusText));
-          elTbody.innerHTML = '<tr><td colspan="5" class="empty">Failed to load list.</td></tr>';
+          elTbody.innerHTML = '<tr><td colspan="10" class="empty">Failed to load list.</td></tr>';
           return;
         }
 
