@@ -628,10 +628,8 @@
 
         setStatus('', 'Opening shared file…');
         try {
-          var res = await fetch(API_BASE + '/api/mnemospark-lite/shares/exchange', {
+          var res = await apiFetch('/api/mnemospark-lite/shares/exchange', {
             method: 'POST',
-            headers: { 'content-type': 'application/json' },
-            credentials: 'include',
             body: JSON.stringify({ share_token: share })
           });
           if (!res.ok) {
