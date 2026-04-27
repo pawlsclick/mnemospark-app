@@ -2,6 +2,13 @@
 
 Static web shell for **`https://app.mnemospark.ai`**: ls-web session exchange, file list, and multi-download. This repository is **independent** from the marketing site (`mnemospark-website`).
 
+## URLs
+
+- **mnemospark**: `https://app.mnemospark.ai/mnemospark`
+- **mnemospark-lite**: `https://app.mnemospark.ai/mnemospark-lite`
+
+`/` redirects to `/mnemospark` to keep the split explicit.
+
 ## Layout
 
 - `app/` — static assets (`index.html`, favicon, etc.)
