@@ -138,8 +138,8 @@
 
   <main class="container">
     <section class="hero">
-      <h1>Cloud files (ls-web)</h1>
-      <p>
+      <h1 id="heroTitle">Cloud files (ls-web)</h1>
+      <p id="heroSubtitle">
         This is a lightweight download shell. It uses a short-lived session cookie minted via an exchange code.
         For deletes, use OpenClaw: <span class="mono">/mnemospark cloud delete</span>.
       </p>
@@ -188,9 +188,9 @@
       <div id="downloadLinks" class="links" style="display:none"></div>
     </section>
 
-    <p class="app-foot-note">
+    <p id="footNote" class="app-foot-note">
       <span class="mono">app.mnemospark.ai</span> — browser downloads may be limited by pop-up or multi-download policies.
-      This view does not support delete; use <span class="mono">/mnemospark cloud delete</span> in OpenClaw so your agent stays in control and billing stays consistent.
+      <span id="footDeleteNote">This view does not support delete; use <span class="mono">/mnemospark cloud delete</span> in OpenClaw so your agent stays in control and billing stays consistent.</span>
     </p>
 
     <footer>
@@ -218,6 +218,50 @@
 
   <script>
     (function () {
+      function normalizePathname(p) {
+        if (!p) return '/';
+        try { p = decodeURIComponent(String(p)); } catch (e) { p = String(p); }
+        return p.replace(/\/+$/, '') || '/';
+      }
+
+      function resolveProductMode() {
+        var p = normalizePathname(window.location.pathname || '/');
+        if (p === '/') return 'root';
+        if (p === '/mnemospark') return 'mnemospark';
+        if (p === '/mnemospark-lite') return 'lite';
+        return 'unknown';
+      }
+
+      function applyProductMode(mode) {
+        var heroTitle = document.getElementById('heroTitle');
+        var heroSubtitle = document.getElementById('heroSubtitle');
+        var footDeleteNote = document.getElementById('footDeleteNote');
+
+        if (mode === 'lite') {
+          if (heroTitle) heroTitle.textContent = 'mnemospark Cloud files';
+          if (heroSubtitle) heroSubtitle.textContent = 'Your uploaded files are shown below';
+          if (footDeleteNote) footDeleteNote.style.display = 'none';
+          document.title = 'mnemospark Cloud files';
+          var meta = document.querySelector('meta[name="description"]');
+          if (meta) meta.setAttribute('content', 'View and download your uploaded files.');
+          return;
+        }
+
+        if (mode === 'mnemospark') {
+          // Keep existing ls-web copy.
+          return;
+        }
+      }
+
+      var productMode = resolveProductMode();
+      if (productMode === 'root' || productMode === 'unknown') {
+        var u0 = new URL(window.location.href);
+        u0.pathname = '/mnemospark';
+        window.location.replace(u0.toString());
+        return;
+      }
+      applyProductMode(productMode);
+
       var API_PROD = 'https://api.mnemospark.ai';
       /* mnemospark-staging regional REST invoke URL (see AWS ApiGateway RestApi wrlx6tq7vh). Update if recreated. */
       var API_STAGING = 'https://api-staging.mnemospark.ai';
