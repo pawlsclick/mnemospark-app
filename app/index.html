@@ -159,7 +159,9 @@
           <button id="refreshBtn" class="btn btn-ghost" type="button">Refresh</button>
           <button id="selectAllBtn" class="btn btn-ghost" type="button">Select all</button>
           <button id="clearBtn" class="btn btn-danger" type="button">Clear</button>
-          <button id="downloadBtn" class="btn btn-primary" type="button" disabled>Download selected</button>
+          <button id="downloadBtn" class="btn btn-primary" type="button" disabled>Download</button>
+          <button id="shareBtn" class="btn btn-ghost" type="button" disabled>Share</button>
+          <button id="deleteBtn" class="btn btn-danger" type="button" disabled>Delete</button>
         </div>
       </div>
 
@@ -300,6 +302,8 @@
       var selectAllBtn = document.getElementById('selectAllBtn');
       var clearBtn = document.getElementById('clearBtn');
       var downloadBtn = document.getElementById('downloadBtn');
+      var shareBtn = document.getElementById('shareBtn');
+      var deleteBtn = document.getElementById('deleteBtn');
       var masterCheck = document.getElementById('masterCheck');
       var downloadLinks = document.getElementById('downloadLinks');
       var apiEnvNote = document.getElementById('apiEnvNote');
@@ -432,8 +436,22 @@
 
       function updateDownloadButton() {
         downloadBtn.disabled = selected.size === 0;
-        downloadBtn.textContent = selected.size === 0 ? 'Download selected' : ('Download selected (' + selected.size + ')');
+        downloadBtn.textContent = selected.size === 0 ? 'Download' : ('Download (' + selected.size + ')');
       }
+
+      function updateLiteActionButtons() {
+        if (!shareBtn || !deleteBtn) return;
+        if (productMode !== 'lite') {
+          shareBtn.style.display = 'none';
+          deleteBtn.style.display = 'none';
+          return;
+        }
+        shareBtn.style.display = '';
+        deleteBtn.style.display = '';
+        shareBtn.disabled = selected.size !== 1;
+        deleteBtn.disabled = selected.size === 0;
+      }
+      updateLiteActionButtons();
 
       function getSelectableKeyCount() {
         var keys = new Set();
@@ -452,6 +470,7 @@
           elTbody.innerHTML = '<tr><td colspan="10" class="empty">No files found.</td></tr>';
           masterCheck.checked = false;
           updateDownloadButton();
+          updateLiteActionButtons();
           return;
         }
 
@@ -490,6 +509,7 @@
         var selectableKeyCount = getSelectableKeyCount();
         masterCheck.checked = selected.size > 0 && selected.size === selectableKeyCount;
         updateDownloadButton();
+        updateLiteActionButtons();
       }
 
       function escapeHtml(s) {
@@ -530,6 +550,102 @@
           return true;
         } catch (e) {
           setStatus('bad', e && e.message ? e.message : 'Exchange failed');
+          return false;
+        }
+      }
+
+      function getSelectedUploadIds() {
+        var ids = [];
+        selected.forEach(function (k) {
+          var row = rows.find(function (o) { return normalizeKey(o) === k; });
+          var id = normalizeUploadId(row);
+          if (id) ids.push(id);
+        });
+        return ids;
+      }
+
+      async function mintShareUrl() {
+        if (selected.size !== 1) return;
+        var ids = getSelectedUploadIds();
+        if (ids.length !== 1) {
+          setStatus('bad', 'Share requires a single uploaded file (missing ID).');
+          return;
+        }
+        setStatus('', 'Minting share URL…');
+        try {
+          var res = await apiFetch('/api/mnemospark-lite/share', {
+            method: 'POST',
+            body: JSON.stringify({ uploadId: ids[0] })
+          });
+          if (!res.ok) {
+            var txt = await safeText(res);
+            throw new Error('Share failed (' + res.status + '): ' + (txt || res.statusText));
+          }
+          var json = await res.json();
+          var url = json && json.data && json.data.shareUrl;
+          if (!url) throw new Error('Share did not return a URL');
+          setStatus('ok', 'Share URL ready (expires in 24h)');
+          window.prompt('Share URL (expires in 24 hours):', url);
+        } catch (e) {
+          setStatus('bad', e && e.message ? e.message : 'Share failed');
+        }
+      }
+
+      async function deleteSelected() {
+        if (!selected.size) return;
+        var ids = getSelectedUploadIds();
+        if (!ids.length) {
+          setStatus('bad', 'No upload IDs found for selected rows.');
+          return;
+        }
+        var ok = window.confirm('Delete ' + ids.length + ' file' + (ids.length === 1 ? '' : 's') + '?');
+        if (!ok) return;
+        setStatus('', 'Deleting ' + ids.length + '…');
+        try {
+          var res = await apiFetch('/api/mnemospark-lite/delete', {
+            method: 'POST',
+            body: JSON.stringify({ uploadIds: ids })
+          });
+          if (!res.ok) {
+            var txt = await safeText(res);
+            throw new Error('Delete failed (' + res.status + '): ' + (txt || res.statusText));
+          }
+          var json = await res.json();
+          var deleted = json && json.data && (json.data.deleted ?? json.data.count);
+          setStatus('ok', 'Deleted ' + (deleted || 0) + ' file' + ((deleted || 0) === 1 ? '' : 's'));
+          selected = new Set();
+          await loadList();
+        } catch (e) {
+          setStatus('bad', e && e.message ? e.message : 'Delete failed');
+        }
+      }
+
+      async function exchangeIfSharePresent() {
+        if (productMode !== 'lite') return true;
+        var u = new URL(window.location.href);
+        var share = (u.searchParams.get('share') || '').trim();
+        if (!share) return true;
+
+        setStatus('', 'Opening shared file…');
+        try {
+          var res = await apiFetch('/api/mnemospark-lite/shares/exchange', {
+            method: 'POST',
+            body: JSON.stringify({ share_token: share })
+          });
+          if (!res.ok) {
+            var txt = await safeText(res);
+            throw new Error('Share exchange failed (' + res.status + '): ' + (txt || res.statusText));
+          }
+          var json = await res.json();
+          var url = json && json.data && json.data.downloadUrl;
+          if (!url) throw new Error('No download URL returned');
+          u.searchParams.delete('share');
+          window.history.replaceState({}, document.title, u.toString());
+          setStatus('ok', 'Opening download…');
+          window.location.assign(url);
+          return false;
+        } catch (e) {
+          setStatus('bad', e && e.message ? e.message : 'Share exchange failed');
           return false;
         }
       }
@@ -677,6 +793,8 @@
         render();
       });
       downloadBtn.addEventListener('click', function () { downloadSelected(); });
+      if (shareBtn) shareBtn.addEventListener('click', function () { mintShareUrl(); });
+      if (deleteBtn) deleteBtn.addEventListener('click', function () { deleteSelected(); });
 
       masterCheck.addEventListener('change', function () {
         if (masterCheck.checked) {
@@ -702,9 +820,12 @@
         var selectableKeyCount = getSelectableKeyCount();
         masterCheck.checked = selected.size > 0 && selected.size === selectableKeyCount;
         updateDownloadButton();
+        updateLiteActionButtons();
       });
 
       (async function boot() {
+        var shareOk = await exchangeIfSharePresent();
+        if (!shareOk) return;
         var exchangeOk = await exchangeIfCodePresent();
         if (!exchangeOk) return;
         await loadList();
