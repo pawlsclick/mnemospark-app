@@ -620,6 +620,7 @@
       }
 
       async function exchangeIfSharePresent() {
+        if (productMode !== 'lite') return true;
         var u = new URL(window.location.href);
         var share = (u.searchParams.get('share') || '').trim();
         if (!share) return true;
@@ -629,6 +630,7 @@
           var res = await fetch(API_BASE + '/api/mnemospark-lite/shares/exchange', {
             method: 'POST',
             headers: { 'content-type': 'application/json' },
+            credentials: 'include',
             body: JSON.stringify({ share_token: share })
           });
           if (!res.ok) {
@@ -641,7 +643,7 @@
           u.searchParams.delete('share');
           window.history.replaceState({}, document.title, u.toString());
           setStatus('ok', 'Opening download…');
-          window.open(url, '_blank', 'noopener,noreferrer');
+          window.location.assign(url);
           return true;
         } catch (e) {
           setStatus('bad', e && e.message ? e.message : 'Share exchange failed');
