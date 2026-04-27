@@ -451,6 +451,7 @@
         shareBtn.disabled = selected.size !== 1;
         deleteBtn.disabled = selected.size === 0;
       }
+      updateLiteActionButtons();
 
       function getSelectableKeyCount() {
         var keys = new Set();
@@ -644,7 +645,7 @@
           window.history.replaceState({}, document.title, u.toString());
           setStatus('ok', 'Opening download…');
           window.location.assign(url);
-          return true;
+          return false;
         } catch (e) {
           setStatus('bad', e && e.message ? e.message : 'Share exchange failed');
           return false;
