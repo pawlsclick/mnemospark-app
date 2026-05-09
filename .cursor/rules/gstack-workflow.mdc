@@ -1,0 +1,28 @@
+---
+description: Use gstack skills and map ship/deploy to GitHub Actions
+alwaysApply: true
+---
+
+# Cursor + gstack workflow (app)
+
+gstack skills are installed globally under `~/.cursor/skills/gstack-*`.
+
+## Branch + commit rules (enforced)
+
+- **Never commit to `main`** (see `no-commit-to-main.mdc`)
+- **Use Conventional Commits** (see `conventional-commits.mdc`)
+
+## Shipping workflow
+
+- Plan: `gstack-office-hours` → `gstack-autoplan` for non-trivial changes
+- Review: `gstack-review`
+- Security: `gstack-cso` for CI/CD + CloudFront/S3/IAM/security-sensitive changes
+- PR: `gstack-ship`
+
+## Deploy mapping (GitHub Actions → AWS)
+
+This repo deploys from **GitHub Actions**, not from a laptop.
+
+- Merge PR → push to `main` triggers `Deploy app.mnemospark.ai (CloudFront)` (`.github/workflows/deploy.yml`)
+- Path filter: deploy runs only when `app/**`, `infra/cloudformation/app.yaml`, or the workflow file changes.
+
