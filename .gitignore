@@ -1,0 +1,27 @@
+# macOS
+.DS_Store
+
+# Env & secrets
+.env
+.env.*
+!.env.example
+
+# Editors
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Cursor — ignore local state; commit shared rules under .cursor/rules/
+.cursor/*
+!.cursor/rules/
+!.cursor/rules/**
+
+# Logs / tooling noise
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# AWS SAM / IaC local artifacts (if used locally)
+.aws-sam/
