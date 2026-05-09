@@ -1,0 +1,20 @@
+---
+description: Use Conventional Commits for all commits
+alwaysApply: true
+---
+
+# Commit policy: Conventional Commits
+
+In this repo (**mnemospark-app**), use **Conventional Commits** for every commit.
+
+## Format
+
+`<type>(<scope>): <subject>`
+
+Types: `feat`, `fix`, `docs`, `refactor`, `test`, `chore`, `build`, `ci`, `perf`, `style`, `revert`
+
+## Examples
+
+- `feat(cloudfront): add cache-control split for html`
+- `fix(deploy): recover from rollback-complete stacks`
+
